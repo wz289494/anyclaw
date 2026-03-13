@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 import yaml
 
 from utils.path import get_config_path, get_prompt_dir
+from utils.skill_registry import list_local_skills
 
 
 def _load_prompt_yaml() -> Dict[str, Any]:
@@ -57,9 +58,6 @@ def get_system_prompt() -> str:
     """获取 system_prompt 正文，供 agent 使用"""
     return get_prompt_config().get("system_prompt", "").strip()
 
-
-
-
 def format_tool_registry_for_prompt(tools: List[Any]) -> str:
     """根据当前注册的工具列表生成「可用的工具列表及描述」段落，用于拼接到 system_prompt"""
     if not tools:
@@ -72,11 +70,25 @@ def format_tool_registry_for_prompt(tools: List[Any]) -> str:
         lines.append(f"- **{name}**：{desc_one}")
     return "\n".join(lines)
 
+def format_skill_registry_for_prompt(skills: List[Dict[str, str]]) -> str:
+    """将技能列表格式化为可直接拼接进 system prompt 的 Markdown 段落。"""
+    if not skills:
+        return ""
+    lines = ["## 元技能", "", "除了自定义的工具，你还具备下面这些元技能：", ""]
+    for s in skills:
+        name = (s.get("name") or "").strip()
+        desc = (s.get("description") or "").strip().replace("\n", " ")
+        if not name or not desc:
+            continue
+        lines.append(f"- **{name}**：{desc[:400]}")
+    return "\n".join(lines).strip()
 
 def get_system_prompt_with_tools(tools: List[Any]) -> str:
     """获取 system_prompt 正文，并追加当前工具注册表信息。"""
     base = get_system_prompt()
-    section = format_tool_registry_for_prompt(tools)
-    if not section:
+    tool_section = format_tool_registry_for_prompt(tools)
+    skill_section = format_skill_registry_for_prompt(list_local_skills())
+    sections = [s for s in [tool_section, skill_section] if s]
+    if not sections:
         return base
-    return (base.rstrip() + "\n\n" + section).strip()
+    return (base.rstrip() + "\n\n" + "\n\n".join(sections)).strip()

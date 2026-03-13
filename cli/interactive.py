@@ -21,7 +21,6 @@ from utils.token_tracker import TokenUsageTracker
 from cli.display import (
     print_status,
     print_tool_call,
-    print_tool_result,
     print_agent_message,
     print_separator,
     console,
@@ -232,7 +231,7 @@ def run_session_query(
                                 if isinstance(parsed, dict):
                                     tool_result_keywords = [
                                         "result", "error", "path", "file", "save", "output",
-                                        "data", "status", "success", "value"
+                                        "data", "status", "success", "value","skill_name"
                                     ]
                                     # 检查键名是否包含工具结果关键词
                                     keys = [str(k).lower() for k in parsed.keys()]
@@ -240,7 +239,7 @@ def run_session_query(
                                         keyword in key for key in keys for keyword in tool_result_keywords
                                     )
                                     # 如果包含工具结果关键词，且字段数量较少（通常是工具输出而非复杂文本），则认为是工具结果
-                                    if has_tool_keywords and len(parsed) <= 10:
+                                    if has_tool_keywords and len(parsed) <= 50:
                                         is_tool_result_json = True
                             except (json.JSONDecodeError, TypeError):
                                 pass
@@ -283,7 +282,6 @@ def run_session_query(
                         else:
                             tool_result = str(tool_result)
                     
-                    print_tool_result(tool_name, tool_result)
                     
                     # 打印 token 使用情况（工具执行完成后）
                     step_usage = token_tracker.get_step_usage(token_tracker.current_step or "unknown")
@@ -419,7 +417,7 @@ def run_session_query(
                                                 # 2. 结构相对简单（字段数量较少，通常是工具的输出结构）
                                                 tool_result_keywords = [
                                                     "result", "error", "path", "file", "save", "output",
-                                                    "data", "status", "success", "value"
+                                                    "data", "status", "success", "value","skill_name"
                                                 ]
                                                 # 检查键名是否包含工具结果关键词
                                                 keys = [str(k).lower() for k in parsed.keys()]
@@ -427,7 +425,7 @@ def run_session_query(
                                                     keyword in key for key in keys for keyword in tool_result_keywords
                                                 )
                                                 # 如果包含工具结果关键词，且字段数量较少（通常是工具输出而非复杂文本），则认为是工具结果
-                                                if has_tool_keywords and len(parsed) <= 10:
+                                                if has_tool_keywords and len(parsed) <= 50:
                                                     is_tool_result_json = True
                                         except (json.JSONDecodeError, TypeError):
                                             pass
@@ -502,7 +500,7 @@ def run_session_query(
                                     tool_call_id = getattr(msg, "tool_call_id", "")
                                     content = getattr(msg, "content", "")
                                     if content:
-                                        print_tool_result(tool_name, content)
+                                        pass
                                     session_manager.add_message(
                                         task_id, 
                                         "tool", 

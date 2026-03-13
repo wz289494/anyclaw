@@ -9,6 +9,7 @@ from cli.interactive import run_session_loop
 from cli.session_ui import show_session_selector
 from cli.tools_ui import show_tools_list
 from cli.models_ui import show_models_list
+from cli.skills_ui import show_skills_list
 from cli.clear_utils import confirm_and_clear
 
 
@@ -56,6 +57,11 @@ def interactive() -> None:
                 if user_input.strip() == "/tools":
                     show_tools_list()
                     continue
+
+                # 处理 /skills 命令（显示 skills 列表）
+                if user_input.strip() == "/skills":
+                    show_skills_list()
+                    continue
                 
                 # 处理 /clear 命令（清除 memory 和 sandbox）
                 if user_input.strip() == "/clear":
@@ -69,6 +75,7 @@ def interactive() -> None:
                 console.print("  [cyan]/memory[/cyan]  - 查看并恢复之前的会话")
                 console.print("  [cyan]/models[/cyan]  - 查看所有模型配置")
                 console.print("  [cyan]/tools[/cyan]   - 查看所有可用工具")
+                console.print("  [cyan]/skills[/cyan]  - 查看所有可用 skills")
                 console.print("  [cyan]/clear[/cyan]   - 清除 memory 和 sandbox")
                 console.print("  [cyan]/exit[/cyan]    - 退出程序")
                 continue

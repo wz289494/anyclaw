@@ -14,7 +14,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from model.factory import get_react_model
-from tools import demo_calculator
+from tools import cli_runner, demo_calculator, read_skills
 from utils.message_utils import messages_from_session_data
 from utils.prompt_loader import get_system_prompt_with_tools
 from utils.task_context import set_task_id, get_task_id
@@ -24,7 +24,7 @@ from utils.session_manager import get_session_manager
 import warnings
 
 # 当前注册的工具列表
-AGENT_TOOLS = [demo_calculator]
+AGENT_TOOLS = [demo_calculator, read_skills, cli_runner]
 
 # Callback 处理器：在工具执行时设置任务ID上下文
 class TaskContextCallback(BaseCallbackHandler):
