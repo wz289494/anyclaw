@@ -94,8 +94,14 @@ cd anyclaw
 
 （2） **创建虚拟环境（推荐）**
 ```bash
+# 创建虚拟环境
+# Windows
 python -m venv venv
 
+# Linux/Mac
+python3 -m venv venv
+
+# 激活虚拟环境
 # Windows
 venv\Scripts\activate
 
