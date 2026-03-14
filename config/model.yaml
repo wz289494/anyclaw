@@ -15,9 +15,9 @@
 
 # 主流程模型：作为 ReAct Agent 的底座
 main:
-  provider: deepseek
-  model: deepseek-chat
-  api_key_env: DEEPSEEK_APIKEY
+  provider: qwen
+  model: qwen-plus
+  api_key_env: QWEN_APIKEY
 
 # 文本生成模型：用于文本生成任务
 text_generation:
