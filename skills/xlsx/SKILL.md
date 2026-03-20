@@ -93,6 +93,29 @@ python3 skills/xlsx/scripts/xlsx_tool.py '{"action":"to_csv","input":"sandbox/<t
 python3 skills/xlsx/scripts/xlsx_tool.py '{"action":"from_csv","input":"sandbox/<task_id>/sheet1.csv","output":"sandbox/<task_id>/out.xlsx","sheet":"Sheet1"}'
 ```
 
+## xlsx_tool Actions
+
+统一入口脚本：`skills/xlsx/scripts/xlsx_tool.py`。输入为单个 JSON 字符串，输出为 JSON（`success=true/false`）。
+
+### Actions Summary
+
+| action | 作用 | 常用参数 |
+|---|---|---|
+| `info` | 列出工作簿 sheet 信息 | `input` |
+| `preview_sheet` | 预览某个 sheet 的前 N 行/列（避免读全表） | `input`, `sheet`, `max_rows`, `max_cols`, `data_only` |
+| `get_cell` | 读取单元格的值/公式 | `input`, `sheet`, `cell`, `data_only` |
+| `set_cell` | 写入单元格（支持写入公式字符串），并保存到新文件 | `input`, `output`, `sheet`, `cell`, `value` |
+| `to_csv` | 导出某个 sheet 为 CSV | `input`, `sheet`, `output` |
+| `preview_csv` | 预览 CSV（header + 前 N 行） | `input`, `max_rows` |
+| `from_csv` | 从 CSV 创建 XLSX | `input`, `output`, `sheet` |
+| `recalc` | 使用 LibreOffice 重算公式并汇总错误 | `input`, `timeout` |
+
+### Notes
+
+- 建议所有输入/输出路径都用 `sandbox/<task_id>/...` 的相对路径，避免路径混乱。
+- 对于 CSV/大表格预览，优先使用 `preview_sheet` / `preview_csv`，不要直接把整份文件内容读进上下文。
+- `recalc` 依赖 LibreOffice（本 skill 自带 `scripts/recalc.py` 与 `scripts/office/soffice.py` 用于适配沙盒环境）。
+
 ## Important Requirements
 
 **LibreOffice Required for Formula Recalculation**: You can assume LibreOffice is installed for recalculating formula values using the `scripts/recalc.py` script. The script automatically configures LibreOffice on first run, including in sandboxed environments where Unix sockets are restricted (handled by `scripts/office/soffice.py`)

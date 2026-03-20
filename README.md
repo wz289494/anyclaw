@@ -4,7 +4,7 @@
 
 # AnyClaw Agent框架
 
-**基于 LangChain 的 CLI Agent 框架，vibecoding 快速搭建属于自己的 Cli Agent**
+**基于 LangChain 的 Agent 框架，接入skills/tools快速搭建属于垂类Agent**
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.0+-green.svg)](https://www.langchain.com/)
@@ -18,7 +18,7 @@
 
 ## 📖 项目介绍
 
-**AnyClaw** 是一个功能强大的 CLI Agent 框架，基于 LangChain 构建，采用 ReAct（Reasoning + Acting）模式，让你能够快速搭建属于自己的 CLI Agent。
+**AnyClaw** 是一个功能强大的 Agent 框架，基于 LangChain 构建，采用 ReAct（Reasoning + Acting）模式，让你能够快速开发并接入skills/tools，搭建属于自己的垂类Agent。
 
 ### 1. 核心特性
 
@@ -26,6 +26,7 @@
 - **ReAct Agent**：基于 ReAct 模式的智能推理与执行框架
 - **多模型支持**：支持 OpenAI、Gemini、Qwen、DeepSeek、Kimi 等多种 LLM 提供商
 - **工具系统**：灵活的工具扩展机制，轻松添加自定义工具
+- **Skills 元技能**：支持通过 `skills/*/SKILL.md` 注册元技能，提供标准化脚本入口（`/skills` 查看列表）
 - **会话管理**：完整的会话持久化与恢复功能，支持多会话切换
 - **Token 追踪**：实时追踪每次调用的 token 消耗，支持按步骤统计
 - **消息压缩**：自动压缩历史消息，节省 token 成本
@@ -39,7 +40,7 @@
 
 - 修改图标与欢迎语 → 个性化你的 Agent
 - 修改 system prompt → 定制 Agent 的行为
-- 增加tools工具 → 扩展 Agent 能力
+- 增加tools工具/skills工具 → 扩展 Agent 能力
 
 所有配置都通过简单的 YAML 文件和代码修改即可完成，无需深入框架底层。
 
@@ -206,6 +207,7 @@ python -m cli.main
 - `/memory` - 查看并恢复之前的会话（最多显示5个）
 - `/models` - 查看所有模型配置
 - `/tools` - 查看所有可用工具
+- `/skills` - 查看所有可用 skills（扫描 `skills/*/SKILL.md`）
 - `/clear` - 清除 memory 和 sandbox（需确认）
 - `/exit` - 退出程序
 
