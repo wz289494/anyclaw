@@ -52,11 +52,23 @@ def _validate_file_extension(file_path: str) -> bool:
         是否支持该文件格式
     """
     supported_extensions = [
-        '.doc', '.docx', '.txt', '.json', '.md', 
-        '.csv'
+        '.doc', '.docx', '.txt', '.json', '.md',
+        '.csv', '.py', '.html', '.htm', '.css', '.js'
     ]
     ext = Path(file_path).suffix.lower()
     return ext in supported_extensions
+
+
+def _sandbox_relative_path(task_id: str, sandbox_path: Path) -> str:
+    task_dir = get_task_dir(task_id).resolve()
+    try:
+        rel = sandbox_path.resolve().relative_to(task_dir)
+    except Exception:
+        return ""
+    rel_str = str(rel).replace("\\", "/")
+    if not rel_str:
+        return f"sandbox/{task_id}"
+    return f"sandbox/{task_id}/{rel_str}"
 
 
 @tool
@@ -104,11 +116,15 @@ def file_manager(
             "message": "未找到任务ID，无法执行文件操作",
             "data": None,
             "file_path": "",
+            "file_path_abs": "",
+            "file_path_rel": "",
             "timestamp": datetime.now().isoformat()
         }, ensure_ascii=False)
     
     # 确保路径在沙盒中
     sandbox_file_path = _ensure_sandbox_path(task_id, file_path)
+    sandbox_file_path_abs = str(sandbox_file_path)
+    sandbox_file_path_rel = _sandbox_relative_path(task_id, sandbox_file_path)
     
     # 验证文件扩展名（除了list操作）
     if action != "list" and not _validate_file_extension(file_path):
@@ -116,7 +132,9 @@ def file_manager(
             "success": False,
             "message": f"不支持的文件格式：{Path(file_path).suffix}",
             "data": None,
-            "file_path": str(sandbox_file_path),
+            "file_path": sandbox_file_path_abs,
+            "file_path_abs": sandbox_file_path_abs,
+            "file_path_rel": sandbox_file_path_rel,
             "timestamp": datetime.now().isoformat()
         }, ensure_ascii=False)
     
@@ -144,7 +162,9 @@ def file_manager(
                     "success": False,
                     "message": "创建文件需要提供content或data参数",
                     "data": None,
-                    "file_path": str(sandbox_file_path),
+                    "file_path": sandbox_file_path_abs,
+                    "file_path_abs": sandbox_file_path_abs,
+                    "file_path_rel": sandbox_file_path_rel,
                     "timestamp": datetime.now().isoformat()
                 }, ensure_ascii=False)
             
@@ -152,7 +172,9 @@ def file_manager(
                 "success": True,
                 "message": f"文件创建成功：{str(sandbox_file_path)}",
                 "data": None,
-                "file_path": str(sandbox_file_path),
+                "file_path": sandbox_file_path_abs,
+                "file_path_abs": sandbox_file_path_abs,
+                "file_path_rel": sandbox_file_path_rel,
                 "timestamp": datetime.now().isoformat()
             }, ensure_ascii=False)
         
@@ -162,7 +184,9 @@ def file_manager(
                     "success": False,
                     "message": f"文件不存在：{str(sandbox_file_path)}",
                     "data": None,
-                    "file_path": str(sandbox_file_path),
+                    "file_path": sandbox_file_path_abs,
+                    "file_path_abs": sandbox_file_path_abs,
+                    "file_path_rel": sandbox_file_path_rel,
                     "timestamp": datetime.now().isoformat()
                 }, ensure_ascii=False)
             
@@ -186,7 +210,9 @@ def file_manager(
                     "success": False,
                     "message": f"读取文件失败：{str(e)}",
                     "data": None,
-                    "file_path": str(sandbox_file_path),
+                    "file_path": sandbox_file_path_abs,
+                    "file_path_abs": sandbox_file_path_abs,
+                    "file_path_rel": sandbox_file_path_rel,
                     "timestamp": datetime.now().isoformat()
                 }, ensure_ascii=False)
             
@@ -194,7 +220,9 @@ def file_manager(
                 "success": True,
                 "message": f"文件读取成功：{str(sandbox_file_path)}",
                 "data": file_content,
-                "file_path": str(sandbox_file_path),
+                "file_path": sandbox_file_path_abs,
+                "file_path_abs": sandbox_file_path_abs,
+                "file_path_rel": sandbox_file_path_rel,
                 "timestamp": datetime.now().isoformat()
             }, ensure_ascii=False)
         
@@ -204,7 +232,9 @@ def file_manager(
                     "success": False,
                     "message": f"文件不存在：{str(sandbox_file_path)}",
                     "data": None,
-                    "file_path": str(sandbox_file_path),
+                    "file_path": sandbox_file_path_abs,
+                    "file_path_abs": sandbox_file_path_abs,
+                    "file_path_rel": sandbox_file_path_rel,
                     "timestamp": datetime.now().isoformat()
                 }, ensure_ascii=False)
             
@@ -228,7 +258,9 @@ def file_manager(
                     "success": False,
                     "message": "更新文件需要提供content或data参数",
                     "data": None,
-                    "file_path": str(sandbox_file_path),
+                    "file_path": sandbox_file_path_abs,
+                    "file_path_abs": sandbox_file_path_abs,
+                    "file_path_rel": sandbox_file_path_rel,
                     "timestamp": datetime.now().isoformat()
                 }, ensure_ascii=False)
             
@@ -236,7 +268,9 @@ def file_manager(
                 "success": True,
                 "message": f"文件更新成功：{str(sandbox_file_path)}",
                 "data": None,
-                "file_path": str(sandbox_file_path),
+                "file_path": sandbox_file_path_abs,
+                "file_path_abs": sandbox_file_path_abs,
+                "file_path_rel": sandbox_file_path_rel,
                 "timestamp": datetime.now().isoformat()
             }, ensure_ascii=False)
         
@@ -246,7 +280,9 @@ def file_manager(
                     "success": False,
                     "message": f"文件不存在：{str(sandbox_file_path)}",
                     "data": None,
-                    "file_path": str(sandbox_file_path),
+                    "file_path": sandbox_file_path_abs,
+                    "file_path_abs": sandbox_file_path_abs,
+                    "file_path_rel": sandbox_file_path_rel,
                     "timestamp": datetime.now().isoformat()
                 }, ensure_ascii=False)
             
@@ -257,7 +293,9 @@ def file_manager(
                 "success": True,
                 "message": f"文件删除成功：{str(sandbox_file_path)}",
                 "data": None,
-                "file_path": str(sandbox_file_path),
+                "file_path": sandbox_file_path_abs,
+                "file_path_abs": sandbox_file_path_abs,
+                "file_path_rel": sandbox_file_path_rel,
                 "timestamp": datetime.now().isoformat()
             }, ensure_ascii=False)
         
@@ -265,11 +303,15 @@ def file_manager(
             # 确定要列出的目录
             target_path = sandbox_file_path
             if not target_path.exists():
+                target_abs = str(target_path)
+                target_rel = _sandbox_relative_path(task_id, target_path)
                 return json_module.dumps({
                     "success": False,
                     "message": f"目录不存在：{str(target_path)}",
                     "data": None,
-                    "file_path": str(target_path),
+                    "file_path": target_abs,
+                    "file_path_abs": target_abs,
+                    "file_path_rel": target_rel,
                     "timestamp": datetime.now().isoformat()
                 }, ensure_ascii=False)
             
@@ -287,11 +329,15 @@ def file_manager(
                     "modified": datetime.fromtimestamp(item.stat().st_mtime).isoformat()
                 })
             
+            target_abs = str(target_path)
+            target_rel = _sandbox_relative_path(task_id, target_path)
             return json_module.dumps({
                 "success": True,
                 "message": f"目录列出成功：{str(target_path)}",
                 "data": files,
-                "file_path": str(target_path),
+                "file_path": target_abs,
+                "file_path_abs": target_abs,
+                "file_path_rel": target_rel,
                 "timestamp": datetime.now().isoformat()
             }, ensure_ascii=False)
         
@@ -300,7 +346,9 @@ def file_manager(
                 "success": False,
                 "message": f"不支持的操作类型：{action}",
                 "data": None,
-                "file_path": str(sandbox_file_path),
+                "file_path": sandbox_file_path_abs,
+                "file_path_abs": sandbox_file_path_abs,
+                "file_path_rel": sandbox_file_path_rel,
                 "timestamp": datetime.now().isoformat()
             }, ensure_ascii=False)
     
@@ -309,6 +357,8 @@ def file_manager(
             "success": False,
             "message": f"操作失败：{str(e)}",
             "data": None,
-            "file_path": str(sandbox_file_path),
+            "file_path": sandbox_file_path_abs if "sandbox_file_path_abs" in locals() else str(sandbox_file_path),
+            "file_path_abs": sandbox_file_path_abs if "sandbox_file_path_abs" in locals() else str(sandbox_file_path),
+            "file_path_rel": sandbox_file_path_rel if "sandbox_file_path_rel" in locals() else "",
             "timestamp": datetime.now().isoformat()
         }, ensure_ascii=False)

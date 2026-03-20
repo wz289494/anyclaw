@@ -30,9 +30,40 @@ _ALLOWED_BINARIES: set[str] = {
 }
 
 
-def _normalize_cwd() -> Path:
-    """执行路径固定为项目根目录。"""
-    return get_project_root()
+def _normalize_cwd(argv: List[str]) -> Path:
+    if not argv:
+        return get_project_root()
+    if argv[0] not in {"python3", "python"}:
+        return get_project_root()
+    if len(argv) < 2:
+        return get_project_root()
+    script = argv[1]
+    task_id = get_task_id()
+    if task_id and script.endswith(".py") and ("/" not in script and "\\" not in script):
+        project_root = get_project_root().resolve()
+        sandbox_dir = (project_root / "sandbox" / task_id).resolve()
+        if (sandbox_dir / script).is_file():
+            return sandbox_dir
+    if task_id and not Path(script).is_absolute():
+        parts = Path(script).parts
+        if len(parts) >= 2 and parts[0] == "sandbox" and parts[1] == task_id:
+            return get_project_root()
+    try:
+        p = Path(script)
+    except Exception:
+        return get_project_root()
+    project_root = get_project_root().resolve()
+    full = p.resolve() if p.is_absolute() else (project_root / p).resolve()
+    task_id = task_id or get_task_id()
+    if not task_id:
+        return get_project_root()
+    ensure_task_dirs(task_id)
+    sandbox_dir = (project_root / "sandbox" / task_id).resolve()
+    try:
+        full.relative_to(sandbox_dir)
+        return sandbox_dir
+    except Exception:
+        return get_project_root()
 
 
 def _truncate(text: str, limit: int) -> tuple[str, bool]:
@@ -47,7 +78,7 @@ def _truncate(text: str, limit: int) -> tuple[str, bool]:
 
 
 def _is_allowed_python_invocation(argv: List[str]) -> bool:
-    """限制 python 仅允许运行仓库内 scripts/ 或 skills/ 下的 .py 文件。"""
+    """限制 python 仅允许运行仓库内 scripts/skills 或当前任务 sandbox 下的 .py 文件。"""
     if not argv:
         return False
     if len(argv) < 2:
@@ -59,6 +90,12 @@ def _is_allowed_python_invocation(argv: List[str]) -> bool:
     script = argv[1]
     if not script.endswith(".py"):
         return False
+    task_id = get_task_id()
+    if task_id and ("/" not in script and "\\" not in script):
+        project_root = get_project_root().resolve()
+        sandbox_dir = (project_root / "sandbox" / task_id).resolve()
+        if (sandbox_dir / script).is_file():
+            return True
 
     try:
         p = Path(script)
@@ -76,10 +113,17 @@ def _is_allowed_python_invocation(argv: List[str]) -> bool:
     parts = rel.parts
     if not parts:
         return False
-    if parts[0] not in {"skills", "scripts"}:
-        return False
+    if parts[0] in {"skills", "scripts"}:
+        return full.is_file()
+    if parts[0] == "sandbox":
+        task_id = get_task_id()
+        if not task_id:
+            return False
+        if len(parts) < 2 or parts[1] != task_id:
+            return False
+        return full.is_file()
 
-    return full.is_file()
+    return False
 
 
 def _validate_command(argv: List[str]) -> Optional[str]:
@@ -96,13 +140,13 @@ def _validate_command(argv: List[str]) -> Optional[str]:
         return f"不允许执行该命令: {program}. 允许的命令: {allowed}"
 
     if program in {"python3", "python"} and not _is_allowed_python_invocation(argv):
-        return "python 仅允许运行仓库内 skills/ 或 scripts/ 下的 .py 文件（支持相对路径或仓库内绝对路径），且不允许 -c / -m"
+        return "python 仅允许运行仓库内 skills/、scripts/ 或 sandbox/<task_id>/ 下的 .py 文件（支持相对路径或仓库内绝对路径），且不允许 -c / -m"
 
     return None
 
 
 @tool
-def cli_runner(command: str, timeout_sec: int = 600, max_output_chars: int = 50000) -> str:
+def cli_runner(command: str, timeout_sec: int = 600, max_output_chars: int = 50000, stdin: Optional[str] = None) -> str:
     """
     描述：受限命令行执行工具，输入命令字符串，输出为命令行 stdout/stderr（JSON）。
     使用时机：当需要运行某个 skill 的脚本、列目录、查看文件内容等时调用。
@@ -110,10 +154,11 @@ def cli_runner(command: str, timeout_sec: int = 600, max_output_chars: int = 500
     - command（必填）：要执行的命令字符串（例如 "ls -la" 或 "python3 skills/baidu-search/scripts/search.py '{...}'"）。
     - timeout_sec（可选）：超时时间（秒），默认 60。
     - max_output_chars（可选）：最大输出字符数，默认 12000（超过会截断）。
+    - stdin（可选）：标准输入内容（不支持管道/重定向时可用该字段喂给程序）。
     输出：JSON字符串，包含以下字段：
     - command：原始命令
     - argv：解析后的参数数组
-    - cwd：执行目录（固定为项目根目录）
+    - cwd：执行目录
     - exit_code：退出码
     - stdout：标准输出（可能截断）
     - stderr：标准错误（可能截断）
@@ -124,6 +169,15 @@ def cli_runner(command: str, timeout_sec: int = 600, max_output_chars: int = 500
     if not raw:
         return json.dumps({"error": "command 不能为空", "command": command}, ensure_ascii=False)
 
+    if any(x in raw for x in ["|", "&&", "||", ";", ">", "<", "`", "$("]):
+        return json.dumps(
+            {
+                "error": "不支持 shell 管道/重定向/复合命令，请改用单条命令；如需输入内容请使用 stdin 参数",
+                "command": raw,
+            },
+            ensure_ascii=False,
+        )
+
     try:
         argv = shlex.split(raw)
     except Exception as e:
@@ -133,12 +187,13 @@ def cli_runner(command: str, timeout_sec: int = 600, max_output_chars: int = 500
     if error:
         return json.dumps({"error": error, "command": raw, "argv": argv}, ensure_ascii=False)
 
-    cwd = _normalize_cwd()
+    cwd = _normalize_cwd(argv)
     try:
         proc = subprocess.run(
             argv,
             cwd=str(cwd),
             capture_output=True,
+            input=stdin,
             text=True,
             encoding="utf-8",
             errors="replace",

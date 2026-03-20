@@ -14,7 +14,7 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.chat_history import BaseChatMessageHistory
 from model.factory import get_react_model
-from tools import cli_runner, demo_calculator, read_skills, file_manager
+from tools import cli_runner, read_skills, file_manager
 from utils.message_utils import messages_from_session_data
 from utils.prompt_loader import get_system_prompt_with_tools
 from utils.task_context import set_task_id, get_task_id
@@ -88,7 +88,7 @@ def _patch_langchain_openai_for_deepseek_reasoner():
 _patch_langchain_openai_for_deepseek_reasoner()
 
 # 当前注册的工具列表
-AGENT_TOOLS = [demo_calculator, read_skills, cli_runner, file_manager]
+AGENT_TOOLS = [read_skills, cli_runner, file_manager]
 
 # Callback 处理器：在工具执行时设置任务ID上下文
 class TaskContextCallback(BaseCallbackHandler):

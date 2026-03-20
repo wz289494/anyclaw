@@ -338,10 +338,10 @@ __all__ = ["my_tool"]
 代码示例：
 
 ```python
-from tools import demo_calculator, my_tool
+from tools import my_tool
 
 # 当前注册的工具列表
-AGENT_TOOLS = [demo_calculator, my_tool]
+AGENT_TOOLS = [my_tool]
 ```
 
 **第四步：测试工具**
@@ -398,7 +398,7 @@ anyclaw/
 ├── sandbox/            # 任务运行目录
 ├── tools/              # 工具定义
 │   ├── __init__.py
-│   └── demo_calculator.py  # 示例计算工具
+│   └── xxx.py  # 示例工具
 ├── utils/              # 工具函数
 │   ├── __init__.py
 │   ├── session_manager.py  # 会话管理
@@ -409,7 +409,7 @@ anyclaw/
 │   ├── prompt_loader.py     # Prompt 加载
 │   └── task_context.py      # 任务上下文管理
 ├── scripts/            # 脚本文件
-│   └── run_demo_calculator.py  # 工具测试脚本
+│   └── run_xxx.py  # 工具测试脚本
 ├── pyproject.toml      # 项目配置
 ├── requirements.txt    # 依赖列表
 ├── LICENSE.txt         # 许可证
