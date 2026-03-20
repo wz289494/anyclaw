@@ -191,11 +191,39 @@ pip install -e .
 （7） **运行项目**
 ```bash
 # 方式1：使用命令行入口（需要先执行 pip install -e .）
-anyclaw
+anyclaw-cli
 
 # 方式2：直接运行（无需安装）
 python -m cli.main
 ```
+
+### API 模式（HTTP 服务）
+
+```bash
+anyclaw-api
+```
+
+默认监听 `0.0.0.0:7000`，提供以下接口（返回 Markdown 或 JSON）：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | /api/tools | 工具列表（markdown） |
+| GET | /api/models | 模型列表（markdown） |
+| GET | /api/skills | skills 列表（markdown） |
+| POST | /api/new | 创建新任务，返回 task_id |
+| GET | /api/memory | 返回 task_id 列表 |
+| POST | /api/clear | 清理 memory 与 sandbox |
+| POST | /api/agent | 运行 agent（流式返回工具调用与最终结果） |
+
+`/api/agent` 请求示例：
+
+```bash
+curl -N -X POST http://localhost:7000/api/agent \
+  -H "Content-Type: application/json" \
+  -d '{"task_id":"<task_id>","query":"你好"}'
+```
+
+服务会返回 NDJSON（逐行 JSON），包含 `tool_call`、`tool_result` 与 `final` 事件。
 
 ---
 

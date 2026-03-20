@@ -25,7 +25,8 @@ dependencies = [
 ]
 
 [project.scripts]
-anyclaw = "cli.main:main"
+anyclaw-cli = "cli.main:main"
+anyclaw-api = "api.main:main"
 
 [tool.pytest.ini_options]
 filterwarnings = [
@@ -34,4 +35,4 @@ filterwarnings = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["cli*", "agent*", "config*", "model*", "tools*", "utils*", "mcps*", "prompt*", "skills*", "scripts*"]
+include = ["cli*", "agent*", "api*", "config*", "model*", "tools*", "utils*", "mcps*", "prompt*", "skills*", "scripts*"]
