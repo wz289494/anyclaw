@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 from datetime import datetime
 from rich.console import Console
+from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.text import Text
 from rich.table import Table
@@ -14,6 +15,17 @@ import re
 
 # 创建全局 Console 实例
 console = Console()
+
+
+def _safe_for_console(text: str) -> str:
+    if not text:
+        return ""
+    text = text.replace("•", "-").replace("👇", "↓")
+    encoding = getattr(getattr(console, "file", None), "encoding", None) or "utf-8"
+    try:
+        return text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+    except Exception:
+        return text.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
 
 def print_icon() -> None:
     """打印 ANYCLAW 项目的 ASCII 图标（使用 Rich）"""
@@ -222,9 +234,8 @@ def print_agent_message(message_type: str, content: str) -> None:
     """
     timestamp = format_timestamp()
     if message_type == "AIMessage":
-        # 使用 Panel 显示 Agent 回复
         panel = Panel(
-            content,
+            Markdown(_safe_for_console(content)),
             title=f"[bold blue]Agent 回复[/bold blue] [dim]({timestamp})[/dim]",
             border_style="blue",
             padding=(1, 2)

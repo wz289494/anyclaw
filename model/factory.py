@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import yaml
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, List
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 
@@ -18,6 +18,11 @@ _DEFAULT_API_KEY_ENV_BY_PROVIDER: Dict[str, str] = {
     "dashscope": "DASHSCOPE_APIKEY",
     "deepseek": "DEEPSEEK_APIKEY",
     "kimi": "KIMI_APIKEY",
+}
+# 思考型模型
+_THINKING_MODELS_BY_PROVIDER: Dict[str, set[str]] = {
+    "deepseek": {"deepseek-reasoner"},
+    "kimi": {"kimi-k2.5"},
 }
 
 # 加载模型配置
@@ -102,13 +107,19 @@ def _create_openai_compatible(
     - 使用 langchain_openai.ChatOpenAI
     - 通过 base_url 指向第三方 OpenAI-compatible endpoint
     """
-    # 流式场景下默认请求返回 usage（通过 model_kwargs 注入，避免触发「非默认参数」warning）
+    streaming = kwargs.get("streaming")
+    if streaming is None:
+        kwargs["streaming"] = True
+        streaming = True
+
     model_kwargs = kwargs.get("model_kwargs") if isinstance(kwargs.get("model_kwargs"), dict) else {}
-    if "stream_options" not in model_kwargs and "stream_options" not in kwargs:
-        model_kwargs["stream_options"] = {"include_usage": True}
+    if streaming:
+        if "stream_options" not in model_kwargs and "stream_options" not in kwargs:
+            model_kwargs["stream_options"] = {"include_usage": True}
+    else:
+        model_kwargs.pop("stream_options", None)
+        kwargs.pop("stream_options", None)
     kwargs["model_kwargs"] = model_kwargs
-    # OpenAI 接口要求 stream_options 与 stream 同时显式开启
-    kwargs.setdefault("streaming", True)
     try:
         return ChatOpenAI(model=model, api_key=api_key, base_url=base_url, **kwargs)
     except TypeError:
@@ -116,6 +127,24 @@ def _create_openai_compatible(
         if "model_kwargs" in kwargs and isinstance(kwargs["model_kwargs"], dict):
             kwargs["model_kwargs"].pop("stream_options", None)
         return ChatOpenAI(model=model, openai_api_key=api_key, base_url=base_url, **kwargs)
+
+def list_thinking_models() -> List[str]:
+    items: List[str] = []
+    for provider, models in _THINKING_MODELS_BY_PROVIDER.items():
+        for m in sorted(models):
+            items.append(f"{provider}:{m}")
+    return items
+
+
+def is_thinking_model(provider: str, model: str) -> bool:
+    provider_key = str(provider or "").strip().lower()
+    model_key = str(model or "").strip().lower()
+    if not provider_key or not model_key:
+        return False
+    models = _THINKING_MODELS_BY_PROVIDER.get(provider_key)
+    if not models:
+        return False
+    return model_key in {str(x).strip().lower() for x in models}
 
 # 创建openai模型接口
 def _create_openai(model: str, api_key: str, **kwargs: Any) -> Any:
@@ -169,6 +198,8 @@ def _create_deepseek(model: str, api_key: str, **kwargs: Any) -> Any:
     可在 config/model.yaml 的 profile 中用 base_url 覆盖。
     """
     base_url = str(kwargs.pop("base_url", "") or "https://api.deepseek.com").strip()
+    if is_thinking_model("deepseek", model) and "streaming" not in kwargs:
+        kwargs["streaming"] = False
     return _create_openai_compatible(model=model, api_key=api_key, base_url=base_url, **kwargs)
 
 # 创建kimi模型接口
@@ -180,6 +211,8 @@ def _create_kimi(model: str, api_key: str, **kwargs: Any) -> Any:
     可在 config/model.yaml 的 profile 中用 base_url 覆盖。
     """
     base_url = str(kwargs.pop("base_url", "") or "https://api.moonshot.cn/v1").strip()
+    if is_thinking_model("kimi", model) and "streaming" not in kwargs:
+        kwargs["streaming"] = False
     return _create_openai_compatible(model=model, api_key=api_key, base_url=base_url, **kwargs)
 
 

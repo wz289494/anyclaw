@@ -156,7 +156,8 @@ class SessionManager:
         content: str,
         tool_name: Optional[str] = None,
         tool_calls: Optional[List[Dict[str, Any]]] = None,
-        tool_call_id: Optional[str] = None
+        tool_call_id: Optional[str] = None,
+        reasoning_content: Optional[str] = None
     ) -> None:
         """
         向会话添加消息
@@ -168,6 +169,7 @@ class SessionManager:
             tool_name: 工具名称（仅当 role 为 tool 时使用）
             tool_calls: 工具调用信息（仅当 role 为 assistant 时使用）
             tool_call_id: 工具调用 ID（仅当 role 为 tool 时使用，必须与对应的 assistant 消息中的 tool_calls[].id 匹配）
+            reasoning_content: 推理内容（仅当 role 为 assistant 时使用，DeepSeek Reasoner 等推理模型专用）
         """
         session_data = self.load_session(task_id)
         if not session_data:
@@ -190,6 +192,9 @@ class SessionManager:
         
         if tool_call_id:
             msg_data["tool_call_id"] = tool_call_id
+        
+        if reasoning_content is not None:
+            msg_data["reasoning_content"] = reasoning_content
         
         session_data["messages"].append(msg_data)
         

@@ -198,6 +198,7 @@ def run_session_query(
                 elif chunk_type == "message":
                     message = chunk.get("message")
                     if message and isinstance(message, AIMessage):
+                        was_streaming = bool(is_streaming and live_display)
                         # 关闭流式显示
                         if is_streaming and live_display:
                             live_display.stop()
@@ -208,6 +209,9 @@ def run_session_query(
                         # 处理消息
                         tool_calls = getattr(message, "tool_calls", None) or []
                         content = str(getattr(message, "content", "")).strip() if hasattr(message, "content") else ""
+                        reasoning_content = getattr(message, "reasoning_content", None)
+                        if reasoning_content is None and getattr(message, "additional_kwargs", None):
+                            reasoning_content = message.additional_kwargs.get("reasoning_content")
                         
                         if tool_calls:
                             # 工具调用会在 tool_call 类型中处理，这里只保存消息
@@ -221,7 +225,9 @@ def run_session_query(
                                         "args": getattr(tc, "args", {}),
                                         "id": getattr(tc, "id", "")
                                     })
-                            session_manager.add_message(task_id, "assistant", content or "", tool_calls=tool_calls_data)
+                            session_manager.add_message(task_id, "assistant", content or "", tool_calls=tool_calls_data, reasoning_content=reasoning_content)
+                            if content and not was_streaming:
+                                print_agent_message("AIMessage", content)
                             pending_tool_calls = tool_calls_data.copy()
                         elif content:
                             is_tool_result_json = False
@@ -247,7 +253,9 @@ def run_session_query(
                             # 如果是工具结果的JSON，跳过保存（工具结果已经通过tool_result类型保存了）
                             if not is_tool_result_json:
                                 # 保存最终消息
-                                session_manager.add_message(task_id, "assistant", content)
+                                session_manager.add_message(task_id, "assistant", content, reasoning_content=reasoning_content)
+                                if not was_streaming:
+                                    print_agent_message("AIMessage", content)
                                 # 每次回复完成后打印 token 消耗（本轮 delta）
                                 _print_reply_token_delta("本次回复")
                             current_content = ""
@@ -306,13 +314,43 @@ def run_session_query(
                         }
                     
                     # 保存工具结果到会话
-                    run_id = chunk.get("run_id", "")
+                    run_id = chunk.get("run_id", "") or ""
+                    tool_call_id_to_save = run_id
+                    if pending_tool_calls:
+                        pending_ids = [
+                            str(tc.get("id"))
+                            for tc in pending_tool_calls
+                            if isinstance(tc, dict) and tc.get("id")
+                        ]
+                        if tool_call_id_to_save not in pending_ids:
+                            matched_idx = None
+                            for idx, tc in enumerate(pending_tool_calls):
+                                if (
+                                    isinstance(tc, dict)
+                                    and tc.get("name") == tool_name
+                                    and tc.get("id")
+                                ):
+                                    matched_idx = idx
+                                    break
+                            if matched_idx is None:
+                                for idx, tc in enumerate(pending_tool_calls):
+                                    if isinstance(tc, dict) and tc.get("id"):
+                                        matched_idx = idx
+                                        break
+                            if matched_idx is not None:
+                                tool_call_id_to_save = str(pending_tool_calls[matched_idx].get("id") or tool_call_id_to_save)
+                                pending_tool_calls.pop(matched_idx)
+                        else:
+                            pending_tool_calls = [
+                                tc for tc in pending_tool_calls
+                                if not (isinstance(tc, dict) and tc.get("id") == tool_call_id_to_save)
+                            ]
                     session_manager.add_message(
                         task_id,
                         "tool",
                         str(tool_result),
                         tool_name=tool_name,
-                        tool_call_id=run_id
+                        tool_call_id=tool_call_id_to_save
                     )
                     continue
                 
@@ -360,6 +398,9 @@ def run_session_query(
                                 if isinstance(msg, AIMessage):
                                     tool_calls = getattr(msg, "tool_calls", None) or []
                                     content = str(getattr(msg, "content", "")).strip() if hasattr(msg, "content") else ""
+                                    reasoning_content = getattr(msg, "reasoning_content", None)
+                                    if reasoning_content is None and getattr(msg, "additional_kwargs", None):
+                                        reasoning_content = msg.additional_kwargs.get("reasoning_content")
                                     
                                     if tool_calls:
                                         # 如果有流式显示，先关闭它
@@ -399,7 +440,7 @@ def run_session_query(
                                                     "args": getattr(tc, "args", {}),
                                                     "id": getattr(tc, "id", "")
                                                 })
-                                        session_manager.add_message(task_id, "assistant", content or "", tool_calls=tool_calls_data)
+                                        session_manager.add_message(task_id, "assistant", content or "", tool_calls=tool_calls_data, reasoning_content=reasoning_content)
                                         pending_tool_calls = tool_calls_data.copy()
                                 
                                 elif isinstance(msg, AIMessage) and content:
@@ -546,6 +587,7 @@ def run_session_query(
             
             # 保存最终消息
             tool_calls_data = None
+            reasoning_content = None
             # 从 final_state 中查找对应的 AIMessage 来获取 tool_calls
             if final_state:
                 for node_name, state_update in final_state.items():
@@ -567,13 +609,17 @@ def run_session_query(
                                                     "args": getattr(tc, "args", {}),
                                                     "id": getattr(tc, "id", "")
                                                 })
+                                    # 获取 reasoning_content
+                                    reasoning_content = getattr(msg, "reasoning_content", None)
+                                    if reasoning_content is None and getattr(msg, "additional_kwargs", None):
+                                        reasoning_content = msg.additional_kwargs.get("reasoning_content")
                                     # 使用最终的消息内容（可能比 current_content 更完整）
                                     if msg_content != current_content:
                                         current_content = msg_content
                                     break
             
             if current_content:
-                session_manager.add_message(task_id, "assistant", current_content, tool_calls=tool_calls_data)
+                session_manager.add_message(task_id, "assistant", current_content, tool_calls=tool_calls_data, reasoning_content=reasoning_content)
                 # 每次回复完成后打印 token 消耗（本轮 delta）
                 _print_reply_token_delta("本次回复")
             

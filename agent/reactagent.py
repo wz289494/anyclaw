@@ -23,6 +23,70 @@ from utils.message_utils import compress_messages
 from utils.session_manager import get_session_manager
 import warnings
 
+
+def _patch_langchain_openai_for_deepseek_reasoner():
+    from langchain_openai.chat_models import base as openai_base
+
+    original_convert_message_to_dict = openai_base._convert_message_to_dict
+    original_convert_dict_to_message = openai_base._convert_dict_to_message
+
+    def _extract_reasoning_from_content_blocks(message: AIMessage) -> str | None:
+        content = getattr(message, "content", None)
+        if not isinstance(content, list):
+            return None
+        parts: list[str] = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") not in ("reasoning_content", "thinking"):
+                continue
+            text = block.get("text") or block.get("content") or ""
+            if isinstance(text, str) and text:
+                parts.append(text)
+        if not parts:
+            return None
+        return "\n".join(parts)
+
+    def patched_convert_message_to_dict(message: BaseMessage, api: str = "chat/completions") -> dict:
+        message_dict = original_convert_message_to_dict(message, api=api)
+        if isinstance(message, AIMessage):
+            reasoning_content = getattr(message, "reasoning_content", None)
+            if reasoning_content is None and hasattr(message, "additional_kwargs"):
+                reasoning_content = message.additional_kwargs.get("reasoning_content")
+            if reasoning_content is None and hasattr(message, "additional_kwargs"):
+                reasoning_content = message.additional_kwargs.get("thinking")
+            if reasoning_content is None:
+                reasoning_content = _extract_reasoning_from_content_blocks(message)
+            if reasoning_content is not None:
+                message_dict["reasoning_content"] = reasoning_content
+            if "tool_calls" in message_dict and "reasoning_content" not in message_dict:
+                message_dict["reasoning_content"] = ""
+        return message_dict
+
+    def patched_convert_dict_to_message(_dict: dict) -> BaseMessage:
+        msg = original_convert_dict_to_message(_dict)
+        if isinstance(msg, AIMessage):
+            reasoning_content = None
+            if "reasoning_content" in _dict:
+                reasoning_content = _dict.get("reasoning_content")
+            elif "thinking" in _dict:
+                reasoning_content = _dict.get("thinking")
+            if reasoning_content is not None:
+                if getattr(msg, "additional_kwargs", None) is None:
+                    msg.additional_kwargs = {}
+                msg.additional_kwargs["reasoning_content"] = reasoning_content
+                try:
+                    msg.reasoning_content = reasoning_content
+                except Exception:
+                    pass
+        return msg
+
+    openai_base._convert_message_to_dict = patched_convert_message_to_dict
+    openai_base._convert_dict_to_message = patched_convert_dict_to_message
+
+
+_patch_langchain_openai_for_deepseek_reasoner()
+
 # 当前注册的工具列表
 AGENT_TOOLS = [demo_calculator, read_skills, cli_runner, file_manager]
 
@@ -89,11 +153,15 @@ class SessionChatMessageHistory(BaseChatMessageHistory):
                             "args": getattr(tc, "args", {}),
                             "id": getattr(tc, "id", "")
                         })
+            reasoning_content = getattr(message, "reasoning_content", None)
+            if reasoning_content is None and getattr(message, "additional_kwargs", None):
+                reasoning_content = message.additional_kwargs.get("reasoning_content")
             session_manager.add_message(
                 self.task_id, 
                 "assistant", 
                 message.content or "", 
-                tool_calls=tool_calls_data if tool_calls_data else None
+                tool_calls=tool_calls_data if tool_calls_data else None,
+                reasoning_content=reasoning_content
             )
         elif isinstance(message, ToolMessage):
             session_manager.add_message(
@@ -166,7 +234,16 @@ def stream(
     # 构建消息列表
     messages = []
     if previous_messages:
-        messages.extend(previous_messages)
+        for msg in previous_messages:
+            if isinstance(msg, AIMessage):
+                try:
+                    msg.reasoning_content = None
+                except Exception:
+                    pass
+                if getattr(msg, "additional_kwargs", None):
+                    msg.additional_kwargs.pop("reasoning_content", None)
+                    msg.additional_kwargs.pop("thinking", None)
+            messages.append(msg)
     messages.append(HumanMessage(content=user_input))
     
     # 获取当前的 completion_tokens 累计值
@@ -185,6 +262,11 @@ def stream(
         current_completion_tokens=current_completion_tokens
     )
     messages = compressed_messages
+    
+    for msg in messages:
+        if isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None):
+            if not hasattr(msg, "reasoning_content") or msg.reasoning_content is None:
+                msg.reasoning_content = ""
     
     inputs = {"messages": messages}
     config = {"configurable": {"task_id": task_id}} if task_id else {}
@@ -229,12 +311,16 @@ def stream(
                                 "args": getattr(tc, "args", {}),
                                 "id": getattr(tc, "id", "")
                             })
-                compressed_messages_dict.append({
+                msg_dict = {
                     "role": "assistant",
                     "content": msg.content or "",
                     "tool_calls": tool_calls_data if tool_calls_data else None,
                     "timestamp": datetime.now().isoformat()
-                })
+                }
+                reasoning_content = getattr(msg, "reasoning_content", None)
+                if reasoning_content is not None:
+                    msg_dict["reasoning_content"] = reasoning_content
+                compressed_messages_dict.append(msg_dict)
             elif isinstance(msg, ToolMessage):
                 compressed_messages_dict.append({
                     "role": "tool",

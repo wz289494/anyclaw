@@ -76,13 +76,19 @@ def messages_from_session_data(session_data: dict) -> List[BaseMessage]:
                 formatted_tool_calls = []
             
             try:
+                ai_kwargs = {}
                 if formatted_tool_calls:
-                    ai_msg = AIMessage(content=content, tool_calls=formatted_tool_calls)
-                else:
-                    ai_msg = AIMessage(content=content)
+                    ai_kwargs["tool_calls"] = formatted_tool_calls
+                
+                reasoning_content = msg_data.get("reasoning_content")
+                if reasoning_content is None:
+                    reasoning_content = ""
+                ai_kwargs["reasoning_content"] = reasoning_content
+                
+                ai_msg = AIMessage(content=content, **ai_kwargs)
             except Exception as e:
                 try:
-                    ai_msg = AIMessage(content=content)
+                    ai_msg = AIMessage(content=content, reasoning_content="")
                 except Exception:
                     raise
 
@@ -103,60 +109,93 @@ def messages_from_session_data(session_data: dict) -> List[BaseMessage]:
             )
             messages.append(tool_msg)
 
-    # 顺序校验：ToolMessage 必须紧跟带 tool_calls 的 AIMessage
     validated_messages: List[BaseMessage] = []
-    
-    for i, msg in enumerate(messages):
+    last_tool_call_ai_idx: int | None = None
+    ai_idx_to_matched_tool_call_ids: dict[int, set[str]] = {}
+
+    def _extract_tool_calls(ai: AIMessage) -> list[tuple[str, str]]:
+        pairs: list[tuple[str, str]] = []
+        for tc in getattr(ai, "tool_calls", []) or []:
+            if isinstance(tc, dict):
+                tc_id = tc.get("id") or tc.get("tool_call_id") or tc.get("call_id") or ""
+                tc_name = tc.get("name") or tc.get("function", {}).get("name") or ""
+            else:
+                tc_id = getattr(tc, "id", "") or ""
+                tc_name = getattr(tc, "name", "") or ""
+            if tc_id:
+                pairs.append((tc_id, tc_name))
+        return pairs
+
+    for msg in messages:
+        if isinstance(msg, HumanMessage):
+            last_tool_call_ai_idx = None
+            validated_messages.append(msg)
+            continue
+
+        if isinstance(msg, AIMessage):
+            if getattr(msg, "tool_calls", None):
+                last_tool_call_ai_idx = len(validated_messages)
+                ai_idx_to_matched_tool_call_ids.setdefault(last_tool_call_ai_idx, set())
+            else:
+                last_tool_call_ai_idx = None
+            validated_messages.append(msg)
+            continue
+
         if isinstance(msg, ToolMessage):
-            if i == 0 or not validated_messages:
-                warnings.warn("ToolMessage 在消息列表开头，跳过该消息")
+            if last_tool_call_ai_idx is None:
                 continue
 
-            prev_msg = validated_messages[-1]
-            if not isinstance(prev_msg, AIMessage) or not getattr(prev_msg, "tool_calls", None):
+            prev_ai = validated_messages[last_tool_call_ai_idx]
+            if not isinstance(prev_ai, AIMessage) or not getattr(prev_ai, "tool_calls", None):
                 continue
 
-            prev_tool_call_ids = set()
-            for tc in prev_msg.tool_calls:
-                if isinstance(tc, dict):
-                    tc_id = tc.get("id") or tc.get("tool_call_id") or tc.get("call_id")
-                else:
-                    tc_id = getattr(tc, "id", None)
-                if tc_id:
-                    prev_tool_call_ids.add(tc_id)
-            
-            if msg.tool_call_id not in prev_tool_call_ids:
-                continue
+            tool_calls = _extract_tool_calls(prev_ai)
+            tool_call_ids = {tc_id for tc_id, _ in tool_calls}
+
+            if msg.tool_call_id not in tool_call_ids:
+                tool_name = getattr(msg, "name", None) or getattr(msg, "tool_name", None) or ""
+                matched_id = None
+
+                if tool_name:
+                    for tc_id, tc_name in tool_calls:
+                        if tc_name == tool_name and tc_id not in ai_idx_to_matched_tool_call_ids[last_tool_call_ai_idx]:
+                            matched_id = tc_id
+                            break
+
+                if matched_id is None:
+                    for tc_id, _ in tool_calls:
+                        if tc_id not in ai_idx_to_matched_tool_call_ids[last_tool_call_ai_idx]:
+                            matched_id = tc_id
+                            break
+
+                if matched_id is None:
+                    continue
+
+                msg.tool_call_id = matched_id
+
+            ai_idx_to_matched_tool_call_ids[last_tool_call_ai_idx].add(msg.tool_call_id)
+            validated_messages.append(msg)
+            continue
 
         validated_messages.append(msg)
 
-    # 清理：移除没有对应 ToolMessage 的 tool_calls
-    final_messages: List[BaseMessage] = []
-    
-    for i, msg in enumerate(validated_messages):
-        if isinstance(msg, AIMessage) and getattr(msg, "tool_calls", None):
-            next_tool_call_ids: set[str] = set()
-            for next_msg in validated_messages[i + 1 :]:
-                if isinstance(next_msg, ToolMessage):
-                    next_tool_call_ids.add(next_msg.tool_call_id)
-                elif isinstance(next_msg, (AIMessage, HumanMessage)):
-                    break
-            
-            valid_tool_calls = []
-            for tc in msg.tool_calls:
-                if isinstance(tc, dict):
-                    tc_id = tc.get("id") or tc.get("tool_call_id") or tc.get("call_id")
-                else:
-                    tc_id = getattr(tc, "id", None)
-                if tc_id in next_tool_call_ids:
-                    valid_tool_calls.append(tc)
-            
-            if len(valid_tool_calls) != len(msg.tool_calls):
-                msg.tool_calls = valid_tool_calls
+    for ai_idx, matched_ids in ai_idx_to_matched_tool_call_ids.items():
+        if not matched_ids:
+            continue
+        ai = validated_messages[ai_idx]
+        if not isinstance(ai, AIMessage) or not getattr(ai, "tool_calls", None):
+            continue
+        kept = []
+        for tc in ai.tool_calls:
+            if isinstance(tc, dict):
+                tc_id = tc.get("id") or tc.get("tool_call_id") or tc.get("call_id")
+            else:
+                tc_id = getattr(tc, "id", None)
+            if tc_id in matched_ids:
+                kept.append(tc)
+        ai.tool_calls = kept
 
-        final_messages.append(msg)
-
-    return final_messages
+    return validated_messages
 
 
 def compress_messages(
