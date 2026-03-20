@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import base64
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -53,7 +54,7 @@ def _validate_file_extension(file_path: str) -> bool:
     """
     supported_extensions = [
         '.doc', '.docx', '.txt', '.json', '.md',
-        '.csv', '.py', '.html', '.htm', '.css', '.js'
+        '.csv', '.py', '.html', '.htm', '.css', '.js', '.pdf', '.xlsx'
     ]
     ext = Path(file_path).suffix.lower()
     return ext in supported_extensions
@@ -154,6 +155,21 @@ def file_manager(
                     for line in content.split('\n'):
                         doc.add_paragraph(line)
                 doc.save(sandbox_file_path)
+            elif ext in {'.pdf', '.xlsx'} and content:
+                try:
+                    raw_bytes = base64.b64decode(content.encode("utf-8"), validate=False)
+                except Exception as e:
+                    return json_module.dumps({
+                        "success": False,
+                        "message": f"二进制文件内容需要 base64 编码字符串，解码失败：{str(e)}",
+                        "data": None,
+                        "file_path": sandbox_file_path_abs,
+                        "file_path_abs": sandbox_file_path_abs,
+                        "file_path_rel": sandbox_file_path_rel,
+                        "timestamp": datetime.now().isoformat()
+                    }, ensure_ascii=False)
+                with open(sandbox_file_path, 'wb') as f:
+                    f.write(raw_bytes)
             elif content:
                 with open(sandbox_file_path, 'w', encoding='utf-8', errors='replace') as f:
                     f.write(content)
@@ -202,6 +218,43 @@ def file_manager(
                     for para in doc.paragraphs:
                         paragraphs.append(para.text)
                     file_content = '\n'.join(paragraphs)
+                elif ext == '.csv':
+                    total_bytes = sandbox_file_path.stat().st_size
+                    max_preview_bytes = 20000
+                    max_preview_lines = 80
+                    buf: List[str] = []
+                    read_bytes = 0
+                    truncated = False
+                    with open(sandbox_file_path, 'r', encoding='utf-8', errors='replace') as f:
+                        for _ in range(max_preview_lines):
+                            line = f.readline()
+                            if not line:
+                                break
+                            buf.append(line.rstrip("\n"))
+                            read_bytes += len(line.encode("utf-8", errors="ignore"))
+                            if read_bytes >= max_preview_bytes:
+                                truncated = True
+                                break
+                        if not truncated:
+                            if f.read(1):
+                                truncated = True
+                    file_content = "\n".join(buf)
+                    return json_module.dumps({
+                        "success": True,
+                        "message": f"CSV 文件已返回预览内容：{str(sandbox_file_path)}",
+                        "data": file_content,
+                        "file_path": sandbox_file_path_abs,
+                        "file_path_abs": sandbox_file_path_abs,
+                        "file_path_rel": sandbox_file_path_rel,
+                        "truncated": truncated or (total_bytes > read_bytes),
+                        "total_bytes": int(total_bytes),
+                        "preview_bytes": int(read_bytes),
+                        "timestamp": datetime.now().isoformat()
+                    }, ensure_ascii=False)
+                elif ext in {'.pdf', '.xlsx'}:
+                    with open(sandbox_file_path, 'rb') as f:
+                        b = f.read()
+                    file_content = base64.b64encode(b).decode("utf-8")
                 else:
                     with open(sandbox_file_path, 'r', encoding='utf-8', errors='replace') as f:
                         file_content = f.read()
@@ -223,6 +276,7 @@ def file_manager(
                 "file_path": sandbox_file_path_abs,
                 "file_path_abs": sandbox_file_path_abs,
                 "file_path_rel": sandbox_file_path_rel,
+                "data_encoding": "base64" if Path(file_path).suffix.lower() in {".pdf", ".xlsx"} else "",
                 "timestamp": datetime.now().isoformat()
             }, ensure_ascii=False)
         
@@ -250,6 +304,21 @@ def file_manager(
                     for line in content.split('\n'):
                         doc.add_paragraph(line)
                 doc.save(sandbox_file_path)
+            elif ext in {'.pdf', '.xlsx'} and content:
+                try:
+                    raw_bytes = base64.b64decode(content.encode("utf-8"), validate=False)
+                except Exception as e:
+                    return json_module.dumps({
+                        "success": False,
+                        "message": f"二进制文件内容需要 base64 编码字符串，解码失败：{str(e)}",
+                        "data": None,
+                        "file_path": sandbox_file_path_abs,
+                        "file_path_abs": sandbox_file_path_abs,
+                        "file_path_rel": sandbox_file_path_rel,
+                        "timestamp": datetime.now().isoformat()
+                    }, ensure_ascii=False)
+                with open(sandbox_file_path, 'wb') as f:
+                    f.write(raw_bytes)
             elif content:
                 with open(sandbox_file_path, 'w', encoding='utf-8', errors='replace') as f:
                     f.write(content)
