@@ -4,7 +4,7 @@
 
 # AnyClaw Agent框架
 
-**基于 LangChain 的 Agent 框架，接入skills/tools快速搭建属于垂类Agent**
+**轻量化 Agent 框架，快速搭建专属垂类Agent**
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![LangChain](https://img.shields.io/badge/LangChain-1.0+-green.svg)](https://www.langchain.com/)
@@ -18,10 +18,11 @@
 
 ## 📖 项目介绍
 
-**AnyClaw** 是一个功能强大的 Agent 框架，基于 LangChain 构建，采用 ReAct（Reasoning + Acting）模式，让你能够快速开发并接入skills/tools，搭建属于自己的垂类Agent。
+**AnyClaw** 是一个**轻量化**的 Agent 框架，基于 LangChain 构建，采用 ReAct（Reasoning + Acting）模式，让你能够快速开发并接入 skills/tools，搭建属于自己的垂类Agent。
 
 ### 1. 核心特性
 
+- **轻量化设计**：核心代码简洁高效，依赖少，部署方便，易于扩展
 - **流式响应**：支持 token 级别的实时流式输出，提供流畅的交互体验
 - **ReAct Agent**：基于 ReAct 模式的智能推理与执行框架
 - **多模型支持**：支持 OpenAI、Gemini、Qwen、DeepSeek、Kimi 等多种 LLM 提供商
@@ -31,18 +32,42 @@
 - **Token 追踪**：实时追踪每次调用的 token 消耗，支持按步骤统计
 - **消息压缩**：自动压缩历史消息，节省 token 成本
 - **任务隔离**：每个会话拥有独立的 sandbox 目录，文件互不干扰
-- **美观 CLI**：基于 Rich 的美化命令行界面，支持 Markdown 渲染
+- **多模式支持**：提供 CLI 命令行、API 服务两种运行模式
+- **美观界面**：基于 Rich 的美化命令行界面，支持 Markdown 渲染
 - **命令系统**：丰富的命令支持（`/new`, `/memory`, `/models`, `/tools`, `/clear`, `/exit`）
 
 ### 2. 核心定位
 
 核心设计理念是：**只需 vibe coding专属的工具，即可改造搭建为自己的通用/垂类Agent**。
 
-- 修改图标与欢迎语 → 个性化你的 Agent
-- 修改 system prompt → 定制 Agent 的行为
-- 增加tools工具/skills工具 → 扩展 Agent 能力
+- **轻量化**：框架设计简洁，核心功能模块化，易于理解和定制
+- **低侵入**：所有配置都通过简单的 YAML 文件和代码修改即可完成，无需深入框架底层
+- **高扩展性**：支持自定义工具和技能，快速扩展 Agent 能力
+- **多模式**：提供命令行和 API 两种运行模式，满足不同场景需求
 
-所有配置都通过简单的 YAML 文件和代码修改即可完成，无需深入框架底层。
+### 3. 运行模式
+
+AnyClaw 提供两种运行模式，满足不同场景的需求：
+
+#### （1）CLI 命令行模式
+- **使用方式**：`anyclaw-cli` 或 `python -m cli.main`
+- **特点**：交互式命令行界面，支持实时对话和工具调用
+- **适用场景**：本地开发、调试、个人使用
+
+#### （2）API 服务模式
+- **使用方式**：`anyclaw-api`
+- **特点**：后台挂载 HTTP 服务，提供 RESTful 接口
+- **适用场景**：集成到其他应用、多用户访问、自动化流程
+
+### 4. 亮点展示
+
+- **快速上手**：简单的安装和配置流程，5分钟即可开始使用
+- **灵活定制**：支持修改图标、欢迎语、system prompt 等，个性化你的 Agent
+- **智能工具调用**：基于 ReAct 模式的智能推理，自动选择合适的工具执行任务
+- **会话管理**：完整的会话持久化和恢复功能，支持多会话切换
+- **token 优化**：自动追踪和压缩消息，节省 token 成本
+- **多模型适配**：支持多种 LLM 提供商，根据不同场景选择合适的模型
+- **标准化技能**：通过 SKILL.md 注册元技能，提供标准化的能力扩展机制
 
 ---
 
@@ -265,14 +290,143 @@ curl -N -X POST http://localhost:7000/api/agent \
 
 想要定制自己的 Agent？很简单，跟着下面的步骤来就行。
 
-### 1. 先让 AI 熟悉项目
+### 1. Vibe Coding Tools SOP
+
+**步骤 1：让 AI 熟悉项目**
 
 开始之前，先告诉你的 coding 工具（比如 Cursor、GitHub Copilot 等）：
 ```
 -先熟悉当前项目，了解项目结构和核心模块
+-重点关注 agent/reactagent.py、tools/ 目录、skills/ 目录的结构
+-了解工具注册和技能加载的机制
 ```
 
-### 2. 更换 Logo 和欢迎语
+**步骤 2：个性化定制**
+
+```
+-修改项目名称和 Logo：
+  -将 logo 图片放到 docs/logo图/logo图.png，替换掉原来的
+  -修改 cli/display.py 中的 print_welcome() 和 print_icon() 函数
+  -更新 pyproject.toml 中的项目信息
+
+-定制 System prompt：
+  -编辑 prompt/system_prompt.txt 文件
+  -设定角色、认知和性格
+  -添加领域专业知识
+```
+
+**步骤 3：添加新工具**
+
+```
+-在 tools/ 目录下创建新的工具文件（如 my_tool.py）
+-实现工具函数，使用 @tool 装饰器
+-在 tools/__init__.py 中导出工具
+-在 agent/reactagent.py 中注册工具到 AGENT_TOOLS 列表
+-测试工具功能
+```
+
+**步骤 4：开发新技能**
+
+```
+-在 skills/ 目录下创建新的技能文件夹（如 my_skill）
+-创建 SKILL.md 文件，定义技能元数据和使用说明
+-在 scripts/ 目录下创建技能脚本
+-确保脚本支持标准化的输入输出格式
+```
+
+### 2. Skills 载入 SOP
+
+**步骤 1：创建技能目录结构**
+
+```
+skills/
+└── my_skill/           # 技能名称
+    ├── SKILL.md        # 技能元数据和说明
+    └── scripts/        # 技能脚本
+        └── my_skill.py # 技能实现
+```
+
+**步骤 2：编写 SKILL.md 文件**
+
+```markdown
+# My Skill
+
+## 技能说明
+- 描述：这是一个示例技能
+- 功能：实现xxx功能
+- 适用场景：xxx
+
+## 脚本入口
+- 脚本路径：scripts/my_skill.py
+- 执行命令：python scripts/my_skill.py
+
+## 参数说明
+- input: 输入参数
+- output: 输出结果
+```
+
+**步骤 3：实现技能脚本**
+
+```python
+# scripts/my_skill.py
+import json
+
+def main():
+    # 实现技能逻辑
+    result = {"status": "success", "data": "技能执行结果"}
+    print(json.dumps(result, ensure_ascii=False))
+
+if __name__ == "__main__":
+    main()
+```
+
+**步骤 4：测试技能**
+
+```bash
+# 测试技能
+python skills/my_skill/scripts/my_skill.py
+
+# 在 AnyClaw 中使用
+/skills  # 查看技能列表
+# 然后让 Agent 使用该技能
+```
+
+### 3. Tool 与 Skills 的区别
+
+| 特性 | Tool | Skills |
+|------|------|--------|
+| **定义方式** | Python 函数，使用 @tool 装饰器 | 目录结构 + SKILL.md + 脚本 |
+| **注册方式** | 在 agent/reactagent.py 中显式注册 | 自动扫描 skills/ 目录 |
+| **执行方式** | 直接调用 Python 函数 | 通过子进程执行脚本 |
+| **返回格式** | JSON 字符串 | JSON 字符串 |
+| **适用场景** | 核心功能、高频操作、需要访问框架内部状态 | 扩展功能、独立脚本、模块化能力 |
+| **开发难度** | 中等（需要了解框架结构） | 低（独立脚本，无需了解框架） |
+| **示例** | file_manager, cli_runner | pdf, xlsx, baidu-search |
+
+### 4. 模型选择指南
+
+#### 主模型 vs 简单模型
+
+| 特性 | 主模型（如 GPT-4, Gemini Pro） | 简单模型（如 GPT-3.5, Gemini Flash） |
+|------|-------------------------------|-----------------------------------|
+| **流式响应** | 支持，响应速度快 | 支持，但可能不如主模型稳定 |
+| **工具调用能力** | 强，能准确理解和使用工具 | 较弱，可能需要更多提示 |
+| **推理能力** | 强，适合复杂任务 | 较弱，适合简单任务 |
+| **上下文长度** | 长（如 128K+ tokens） | 短（如 4K-16K tokens） |
+| **成本** | 较高 | 较低 |
+| **适用场景** | 复杂推理、多步骤任务、需要工具调用的场景 | 简单问答、文本生成、快速响应的场景 |
+
+#### 模型选择建议
+
+1. **主流程模型（main）**：选择具有强推理能力和工具调用能力的模型，如 GPT-4、Gemini Pro、Qwen Plus 等
+
+2. **文本生成模型（text_generation）**：选择擅长文本创作的模型，如 GPT-3.5、Qwen Turbo 等
+
+3. **元素提取模型（element_extraction）**：选择擅长结构化信息提取的模型，如 GPT-4、Kimi 等
+
+4. **代码生成模型（code_generation）**：选择擅长代码生成的模型，如 DeepSeek、GPT-4、Qwen Coder 等
+
+### 5. 更换 Logo 和欢迎语
 
 **换 Logo**：
 ```
@@ -311,7 +465,7 @@ curl -N -X POST http://localhost:7000/api/agent \
    - 项目标题、描述、所有提到 AnyClaw 的地方 → `YOUR_PROJECT_NAME`
    - GitHub 链接中的用户名和仓库名 → `YOUR_GITHUB_USERNAME/YOUR_REPO_NAME`
 
-### 3. 定制 System prompt
+### 6. 定制 System prompt
 
 想让你的 Agent 更专业？更幽默？更严谨？直接改 system prompt 就行
 ```
@@ -320,7 +474,7 @@ curl -N -X POST http://localhost:7000/api/agent \
 -设定认知：具备React理解 + 专属理解（如舆情分析的方法）
 -设定名称或性格：（如平和、热情）
 ```
-### 4. 给 Agent 添加新能力（工具）
+### 7. 给 Agent 添加新能力（工具）
 
 想让 Agent 能做更多事情？给它加工具就行
 
