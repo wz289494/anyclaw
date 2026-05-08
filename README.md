@@ -140,6 +140,11 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+（3.1）**安装 Playwright 浏览器驱动（用于 skill_download 工具）**
+```bash
+playwright install chromium
+```
+
 （4） **配置环境变量**
 
 创建 `.env` 文件，配置你的 API Key：

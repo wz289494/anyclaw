@@ -58,8 +58,15 @@ def get_stm_dir() -> Path:
     return get_memory_dir() / "STM"
 
 
+def get_ltm_dir() -> Path:
+    """LTM（长期记忆）目录：项目根/memory/LTM。"""
+    return get_memory_dir() / "LTM"
+
+
 def ensure_memory_dirs() -> Path:
-    """确保 memory 和 STM 目录存在，返回 STM 目录。"""
+    """确保 memory、STM、LTM 目录存在，返回 STM 目录。"""
     stm_dir = get_stm_dir()
     stm_dir.mkdir(parents=True, exist_ok=True)
+    ltm_dir = get_ltm_dir()
+    ltm_dir.mkdir(parents=True, exist_ok=True)
     return stm_dir

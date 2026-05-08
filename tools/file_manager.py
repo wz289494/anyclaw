@@ -104,7 +104,6 @@ def file_manager(
     - success：操作是否成功
     - message：操作结果消息
     - data：文件内容（read操作）或文件列表（list操作）
-    - file_path：操作的沙盒路径
     - timestamp：操作时间戳
     重要警告：任何文件操作**必须**通过本工具执行，**不允许**在没有工具调用的情况下声称执行了文件操作。
     """

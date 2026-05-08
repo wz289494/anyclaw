@@ -26,8 +26,28 @@ from cli.display import (
     console,
     print_token_usage,
 )
+from cli.models_ui import show_models_list
+from cli.tools_ui import show_tools_list
+from cli.skills_ui import show_skills_list
+from cli.clear_utils import confirm_and_clear
 from cli.session_ui import show_session_selector
-from utils.message_utils import messages_from_session_data
+from utils.message_utils import messages_from_session_data, compress_messages
+
+
+def _show_session_commands_help() -> None:
+    """显示会话内可用命令与功能说明。"""
+    console.print()
+    console.print("[bold yellow]会话内可用命令：[/bold yellow]")
+    console.print("  [cyan]/new[/cyan] / [cyan]--new[/cyan]       - 开启新的会话（新记忆）")
+    console.print("  [cyan]/memory[/cyan] / [cyan]--memory[/cyan] - 查看并切换历史会话")
+    console.print("  [cyan]/models[/cyan] / [cyan]--model[/cyan]  - 查看当前模型配置")
+    console.print("  [cyan]/tools[/cyan] / [cyan]--tools[/cyan]   - 查看可用工具列表")
+    console.print("  [cyan]/skills[/cyan] / [cyan]--skills[/cyan] - 查看可用 skills 列表")
+    console.print("  [cyan]/clear[/cyan] / [cyan]--clear[/cyan]   - 清理 memory/sandbox（会二次确认）")
+    console.print("  [cyan]/summary[/cyan] / [cyan]--summary[/cyan] - 立即压缩当前会话历史")
+    console.print("  [cyan]/help[/cyan] / [cyan]--help[/cyan] / [cyan]/[/cyan] - 显示本帮助")
+    console.print("  [cyan]/exit[/cyan] / [cyan]--exit[/cyan]     - 保存并退出")
+    console.print()
 
 
 def run_session_query(
@@ -753,8 +773,6 @@ def run_session_loop(task_id: Optional[str] = None) -> None:
             return
         
         ensure_task_dirs(task_id)
-        print_status(f"已恢复会话: {task_id}", "info")
-        print_status(f"描述: {session_data.get('description', 'N/A')}", "info")
         
         # 恢复消息
         previous_messages = messages_from_session_data(session_data)
@@ -771,21 +789,137 @@ def run_session_loop(task_id: Optional[str] = None) -> None:
             if not user_input:
                 continue
             
-            # 处理系统级命令（以 / 开头）
-            if user_input.strip().startswith("/"):
-                # 处理 /exit 命令（退出到主页面）
-                if user_input.strip() == "/exit":
-                    # 保存会话
-                    session_data = session_manager.load_session(task_id)
-                    if session_data:
-                        session_manager.save_session(task_id, session_data)
-                    # 显示任务目录信息（只在退出时显示）
-                    print_status(f"任务目录: sandbox/{task_id}/", "info")
-                    console.print(f"\n[cyan]会话已保存，已退出到主页面[/cyan]\n")
-                    return  # 返回到主页面
-                
-                # 其他系统命令在main.py中处理，这里只处理/exit
-                console.print(f"[yellow]在会话中，只能使用 /exit 退出会话[/yellow]")
+            # 处理会话内命令
+            command = user_input.strip()
+
+            # 兼容原有 / 命令与新增 -- 命令
+            if command in ("/exit", "--exit"):
+                # 保存会话
+                session_data = session_manager.load_session(task_id)
+                if session_data:
+                    session_manager.save_session(task_id, session_data)
+                # 显示任务目录信息（只在退出时显示）
+                print_status(f"任务目录: sandbox/{task_id}/", "info")
+                console.print(f"\n[cyan]会话已保存，已退出[/cyan]\n")
+                return
+
+            if command in ("/new", "--new"):
+                # 直接创建并切换到新会话（保留能力）
+                run_session_loop(task_id=None)
+                return
+
+            if command in ("/", "/help", "--help"):
+                _show_session_commands_help()
+                continue
+
+            if command in ("/models", "--model", "--models"):
+                # 会话内实时查看模型，不中断会话
+                show_models_list()
+                continue
+
+            if command in ("/tools", "--tools"):
+                # 会话内查看可用工具，不中断会话
+                show_tools_list()
+                continue
+
+            if command in ("/skills", "--skills"):
+                # 会话内查看可用 skills，不中断会话
+                show_skills_list()
+                continue
+
+            if command in ("/clear", "--clear"):
+                # 会话内清理 memory/sandbox（含确认），不中断会话
+                confirm_and_clear(exclude_task_id=task_id)
+                continue
+
+            if command in ("/memory", "--memory"):
+                # 会话内切换到历史会话，不退出程序
+                selected_task_id = show_session_selector(limit=10)
+                if selected_task_id:
+                    run_session_loop(task_id=selected_task_id)
+                    return
+                continue
+
+            if command in ("/summary", "--summary"):
+                # 手动触发会话压缩（复用项目已有压缩逻辑）
+                session_data = session_manager.load_session(task_id)
+                if not session_data:
+                    console.print("[red]无法加载当前会话，无法执行压缩。[/red]")
+                    continue
+
+                messages = messages_from_session_data(session_data)
+                current_completion_tokens = 0
+                token_usage = session_data.get("token_usage", {})
+                if isinstance(token_usage, dict):
+                    current_completion_tokens = token_usage.get("completion_tokens", 0)
+
+                compressed_messages, was_compressed, compression_summary = compress_messages(
+                    messages,
+                    max_completion_tokens=0,
+                    current_completion_tokens=current_completion_tokens,
+                )
+
+                if not was_compressed:
+                    console.print("[yellow]当前会话暂无可压缩内容。[/yellow]")
+                    continue
+
+                compressed_messages_dict: List[Dict[str, Any]] = []
+                for msg in compressed_messages:
+                    if isinstance(msg, HumanMessage):
+                        compressed_messages_dict.append({
+                            "role": "user",
+                            "content": str(getattr(msg, "content", "") or ""),
+                        })
+                    elif isinstance(msg, AIMessage):
+                        tool_calls = getattr(msg, "tool_calls", None) or []
+                        tool_calls_data: List[Dict[str, Any]] = []
+                        for tc in tool_calls:
+                            if isinstance(tc, dict):
+                                tool_calls_data.append(tc)
+                            else:
+                                tool_calls_data.append({
+                                    "name": getattr(tc, "name", ""),
+                                    "args": getattr(tc, "args", {}),
+                                    "id": getattr(tc, "id", ""),
+                                })
+
+                        msg_dict: Dict[str, Any] = {
+                            "role": "assistant",
+                            "content": str(getattr(msg, "content", "") or ""),
+                        }
+                        if tool_calls_data:
+                            msg_dict["tool_calls"] = tool_calls_data
+
+                        reasoning_content = getattr(msg, "reasoning_content", None)
+                        if reasoning_content is None and getattr(msg, "additional_kwargs", None):
+                            reasoning_content = msg.additional_kwargs.get("reasoning_content")
+                        if reasoning_content is not None:
+                            msg_dict["reasoning_content"] = reasoning_content
+
+                        compressed_messages_dict.append(msg_dict)
+                    elif isinstance(msg, ToolMessage):
+                        compressed_messages_dict.append({
+                            "role": "tool",
+                            "content": str(getattr(msg, "content", "") or ""),
+                            "tool_name": getattr(msg, "name", "unknown"),
+                            "tool_call_id": str(getattr(msg, "tool_call_id", "") or ""),
+                        })
+
+                session_manager.replace_messages(task_id, compressed_messages_dict, reset_token_usage=True)
+
+                updated_session_data = session_manager.load_session(task_id)
+                if updated_session_data:
+                    previous_messages = messages_from_session_data(updated_session_data)
+
+                console.print("[green]已完成会话压缩。[/green]")
+                if compression_summary:
+                    summary_display = compression_summary[:300] + "..." if len(compression_summary) > 300 else compression_summary
+                    console.print(f"[dim]{summary_display}[/dim]")
+                continue
+
+            if command.startswith("/") or command.startswith("--"):
+                console.print(f"[yellow]未知命令: {command}[/yellow]")
+                _show_session_commands_help()
                 continue
             
             run_session_query(user_input, task_id, previous_messages, show_spinner=True)

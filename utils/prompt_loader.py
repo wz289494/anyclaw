@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 import yaml
 
-from utils.path import get_config_path, get_prompt_dir
+from utils.path import get_config_path, get_prompt_dir, get_ltm_dir
 from utils.skill_registry import list_local_skills
 
 
@@ -88,7 +88,21 @@ def get_system_prompt_with_tools(tools: List[Any]) -> str:
     base = get_system_prompt()
     tool_section = format_tool_registry_for_prompt(tools)
     skill_section = format_skill_registry_for_prompt(list_local_skills())
-    sections = [s for s in [tool_section, skill_section] if s]
+    ltm_dir = get_ltm_dir()
+    user_md = ltm_dir / "user.md"
+    agent_md = ltm_dir / "agent.md"
+    ltm_section = ""
+    if user_md.exists() or agent_md.exists():
+        user_text = user_md.read_text(encoding="utf-8").strip() if user_md.exists() else ""
+        agent_text = agent_md.read_text(encoding="utf-8").strip() if agent_md.exists() else ""
+        ltm_parts = []
+        if user_text:
+            ltm_parts.append("## 用户长期记忆\n" + user_text)
+        if agent_text:
+            ltm_parts.append("## Agent长期记忆\n" + agent_text)
+        ltm_section = "\n\n".join(ltm_parts).strip()
+
+    sections = [s for s in [ltm_section, tool_section, skill_section] if s]
     if not sections:
         return base
     return (base.rstrip() + "\n\n" + "\n\n".join(sections)).strip()

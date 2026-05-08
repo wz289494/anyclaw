@@ -130,17 +130,8 @@ def print_icon() -> None:
     
 
 def print_welcome() -> None:
-    """打印欢迎信息和可用命令（使用 Rich）"""
+    """打印欢迎信息（使用 Rich）。"""
     console.print("[bold white]欢迎使用 AnyClaw - Agent智能助手[/bold white]")
-    console.print()
-    console.print("[yellow]可用命令：[/yellow]")
-    console.print("  [cyan]/new[/cyan]     - 开启新的会话")
-    console.print("  [cyan]/memory[/cyan]  - 查看并恢复之前的会话")
-    console.print("  [cyan]/models[/cyan]  - 查看所有模型配置")
-    console.print("  [cyan]/tools[/cyan]   - 查看所有可用工具")
-    console.print("  [cyan]/skills[/cyan]  - 查看所有可用 skills")
-    console.print("  [cyan]/clear[/cyan]   - 清除 memory 和 sandbox")
-    console.print("  [cyan]/exit[/cyan]    - 退出程序")
     console.print()
 
 
