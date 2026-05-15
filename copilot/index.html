@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AnyClaw Copilot</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div>
+            <h1>AnyClaw Copilot</h1>
+          </div>
+        </div>
+
+        <div class="sidebar-block sidebar-actions">
+          <button id="newSessionBtn" class="primary-btn" type="button">新建对话</button>
+        </div>
+
+        <div class="sidebar-block">
+          <div class="block-title">Agent 配置</div>
+          <div class="shortcut-grid">
+            <button class="shortcut-btn" data-resource="tools" type="button">Tools</button>
+            <button class="shortcut-btn" data-resource="models" type="button">Models</button>
+            <button class="shortcut-btn" data-resource="skills" type="button">Skills</button>
+          </div>
+        </div>
+
+        <div class="sidebar-block session-block">
+          <div class="block-title">历史会话</div>
+          <div id="sessionList" class="session-list"></div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="workspace-header">
+          <div>
+            <h2 id="sessionTitle">准备开始对话</h2>
+          </div>
+          <div class="workspace-meta">
+            <div class="status-row header-status">
+              <span id="statusDot" class="status-dot"></span>
+              <span id="statusText">正在连接 API...</span>
+            </div>
+          </div>
+        </header>
+
+        <section class="workspace-body">
+          <section id="chatView" class="chat-view"></section>
+        </section>
+
+        <form id="composer" class="composer">
+          <textarea
+            id="messageInput"
+            rows="2"
+            placeholder="输入你的问题，Copilot 会自动连接本地 API..."
+          ></textarea>
+          <div class="composer-actions">
+            <div id="streamState" class="stream-state">空闲</div>
+            <button id="sendBtn" class="primary-btn" type="submit">发送</button>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <div id="configModal" class="modal hidden" aria-hidden="true">
+      <div id="modalBackdrop" class="modal-backdrop"></div>
+      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-header">
+          <div>
+            <div class="eyebrow">Agent 配置</div>
+            <h3 id="modalTitle">配置详情</h3>
+          </div>
+          <button id="clearPanelBtn" class="ghost-btn modal-close" type="button">关闭</button>
+        </div>
+        <div id="contentPanel" class="modal-content"></div>
+      </section>
+    </div>
+
+    <template id="messageTemplate">
+      <div class="message-row">
+        <article class="message">
+          <div class="message-body"></div>
+        </article>
+        <div class="message-tools-anchor"></div>
+      </div>
+    </template>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

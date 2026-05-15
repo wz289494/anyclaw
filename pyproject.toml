@@ -27,6 +27,7 @@ dependencies = [
 [project.scripts]
 anyclaw-cli = "cli.main:main"
 anyclaw-api = "api.main:main"
+anyclaw-copilot = "copilot.server:main"
 
 [tool.pytest.ini_options]
 filterwarnings = [
@@ -35,4 +36,7 @@ filterwarnings = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["cli*", "agent*", "api*", "config*", "model*", "tools*", "utils*", "mcps*", "prompt*", "skills*", "scripts*"]
+include = ["cli*", "agent*", "api*", "copilot*", "config*", "model*", "tools*", "utils*", "mcps*", "prompt*", "skills*", "scripts*"]
+
+[tool.setuptools.package-data]
+copilot = ["*.html", "*.css", "*.js"]
